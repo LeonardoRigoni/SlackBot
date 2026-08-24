@@ -67,9 +67,52 @@ If you only use Ollama, `requirements.txt` is enough.
 
 ## Slack App Setup
 
-Create a Slack App with Socket Mode enabled.
+Follow these steps to create and install the Slack bot.
 
-Recommended bot OAuth scopes:
+### 1. Create The Slack App
+
+1. Open <https://api.slack.com/apps>.
+2. Click **Create New App**.
+3. Choose **Blank app**.
+4. Enter an app name, for example `Router Bot`.
+5. Select your Slack workspace.
+6. Click **Create App**.
+
+### 2. Create The App-Level Token
+
+This token is used by Socket Mode. It becomes `SLACK_APP_TOKEN`.
+
+1. In the Slack app settings, go to **Basic Information**.
+2. Scroll to **App-Level Tokens**.
+3. Click **Generate Token and Scopes**.
+4. Use a name such as `socket-mode`.
+5. Add this scope:
+
+```text
+connections:write
+```
+
+6. Click **Generate**.
+7. Copy the generated token into `.env`:
+
+```env
+SLACK_APP_TOKEN=replace-with-your-slack-app-token
+```
+
+The app-level Socket Mode token starts with `xapp-`.
+
+### 3. Enable Socket Mode
+
+1. Go to **Socket Mode**.
+2. Turn **Enable Socket Mode** on.
+3. Select the app-level token created in the previous step.
+4. Save the change.
+
+Socket Mode lets the bot run from your local machine without exposing a public HTTP endpoint.
+
+### 4. Configure Bot OAuth Scopes
+
+Go to **OAuth & Permissions** and add these **Bot Token Scopes**:
 
 - `channels:history`
 - `channels:read`
@@ -77,29 +120,165 @@ Recommended bot OAuth scopes:
 - `app_mentions:read`
 - `users:read`
 
-If any channel is private, also add:
+If the intake channel or any destination channel is private, also add:
 
 - `groups:history`
 - `groups:read`
 
-Event subscriptions:
+### 5. Install The App To The Workspace
+
+1. Still in **OAuth & Permissions**, click **Install to Workspace**.
+2. Approve the installation.
+3. Copy the **Bot User OAuth Token** into `.env`:
+
+```env
+SLACK_BOT_TOKEN=replace-with-your-slack-bot-token
+```
+
+The bot token starts with `xoxb-`.
+
+If you add or change scopes later, click **Reinstall to Workspace** so the new permissions take effect.
+
+### 6. Subscribe To Message Events
+
+Go to **Event Subscriptions**.
+
+1. Turn **Enable Events** on.
+2. In **Subscribe to bot events**, add:
 
 - `message.channels`
 
-For private channels, also subscribe to:
+If the intake channel or destination channels are private, also add:
 
 - `message.groups`
 
-Install the app into the workspace and invite the bot to:
+3. Save changes.
+4. Reinstall the app if Slack asks for it.
+
+### 7. Configure App Display
+
+Optional but recommended:
+
+1. Go to **Basic Information**.
+2. Scroll to **Display Information**.
+3. Set the app display name, for example `Router Bot`.
+4. Upload an app icon.
+
+Generated icon assets are available in this repository:
+
+- `assets/router-bot-icon-512.png`
+- `assets/router-bot-icon-original.png`
+
+Use the 512x512 PNG for Slack.
+
+### 8. Create Or Choose Slack Channels
+
+Create or choose the intake channel and destination channels.
+
+Default intake channel:
+
+- `chamados-menu`
+
+Default destination channels:
+
+- `chamados-ti`
+- `chamados-dados`
+- `chamados-people`
+- `chamados-plataforma`
+- `chamados-seginfo`
+
+### 9. Invite The Bot To Channels
+
+Invite the bot to:
 
 - the intake channel, for example `chamados-menu`
 - every destination channel listed in `rules/channels.md`
 
-Invite command inside each channel:
+Run this inside each channel:
 
 ```text
 /invite @Router Bot
 ```
+
+If the bot is not a member of a channel, it may not receive messages from that channel or may fail to post routed tickets.
+
+### 10. Fill Slack Channel Env Vars
+
+In `.env`, configure the intake channel:
+
+```env
+SLACK_CHANNEL_MENU=chamados-menu
+```
+
+Then configure every destination channel derived from `rules/channels.md`:
+
+```env
+SLACK_CHANNEL_TI=chamados-ti
+SLACK_CHANNEL_DADOS=chamados-dados
+SLACK_CHANNEL_PEOPLE=chamados-people
+SLACK_CHANNEL_PLATAFORMA=chamados-plataforma
+SLACK_CHANNEL_SEGINFO=chamados-seginfo
+```
+
+You may use Slack channel IDs instead of names:
+
+```env
+SLACK_CHANNEL_TI=C0123456789
+```
+
+### 11. Validate Slack Setup
+
+After `.env` is filled and dependencies are installed, run:
+
+```bash
+python3 -m slackbot.diagnose
+```
+
+Expected output includes:
+
+```text
+bot_user_id: ...
+team: ...
+SLACK_CHANNEL_MENU -> C...
+chamados-ti -> C... / is_member=True
+```
+
+If any destination channel shows `is_member=False`, invite the bot to that channel and run the diagnostic again.
+
+### 12. Start The Bot
+
+Run:
+
+```bash
+python3 -m slackbot.app
+```
+
+You should see:
+
+```text
+Bolt app is running!
+```
+
+Post a test message in the intake channel. The bot should reply in a thread and then route or ask follow-up questions depending on the classification result.
+
+### Slack Troubleshooting
+
+If the bot starts but does not react to messages:
+
+- confirm **Socket Mode** is enabled
+- confirm **Event Subscriptions** is enabled
+- confirm `message.channels` is subscribed
+- add `message.groups` if using private channels
+- confirm the app was reinstalled after changing scopes or events
+- confirm the bot was invited to the intake channel
+- run `python3 -m slackbot.diagnose`
+- check that `SLACK_CHANNEL_MENU` points to the correct channel
+
+If the bot cannot post to a destination channel:
+
+- invite the bot to that destination channel
+- confirm the matching `SLACK_CHANNEL_*` env var exists
+- confirm the destination section exists in `rules/channels.md`
 
 ## Environment
 
